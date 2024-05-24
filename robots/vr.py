@@ -121,7 +121,7 @@ class VRController(object):
         gripper_action_gain: float = 1,
         min_magnitude: float = 0,
         control_hz=10,
-        robot_orientation="gripper_in_front",
+        robot_orientation="front",
     ):
         self.oculus_reader = OculusReader()
         self.vr_to_global_mat = np.eye(4)

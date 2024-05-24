@@ -143,11 +143,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     vr_kwargs = dict(
-        pos_action_gain=3.0,
-        rot_action_gain=1.0,
+        pos_action_gain=0.08,
+        rot_action_gain=0.08,
         gripper_action_gain=1.0,
-        min_magnitude=0.15,
-        robot_orientation="right",
+        # min_magnitude=0.01,
+        robot_orientation="front",
     )
     vr_kwargs.update(parse_vars(args.vr_kwargs))
 
@@ -183,7 +183,7 @@ if __name__ == "__main__":
                 done=[False],
                 discount=[1.0],
                 desired_action={k: [v.sample()] for k, v in env.controller.action_spaces.items()},
-                achieved_action_action={k: [v.sample()] for k, v in env.controller.action_spaces.items()},
+                achieved_action={k: [v.sample()] for k, v in env.controller.action_spaces.items()},
             )
 
             def init_action_fn(space):
@@ -195,7 +195,7 @@ if __name__ == "__main__":
                 done=[],
                 discount=[],
                 desired_action={k: [] for k in env.controller.action_spaces.keys()},
-                achieved_action_action={k: [] for k in env.controller.action_spaces.keys()},
+                achieved_action={k: [] for k in env.controller.action_spaces.keys()},
             )
         # Write the obs and action to episode
         episode["obs"] = nest_dict({k: [] for k in flatten_dict(env.observation_space).keys()})
