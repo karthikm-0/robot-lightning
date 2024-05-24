@@ -143,8 +143,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     vr_kwargs = dict(
-        pos_action_gain=0.08,
-        rot_action_gain=0.08,
+        pos_action_gain=0.25,
+        rot_action_gain=0.25,
         gripper_action_gain=1.0,
         # min_magnitude=0.01,
         robot_orientation="front",
