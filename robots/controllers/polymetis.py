@@ -48,7 +48,8 @@ class PolyMetisController(Controller):
     JOINT_DELTA_LOW = 1 / 4.1 * np.array([-2, -1, -1.5, -1.25, -3, -1.5, -3])
     JOINT_DELTA_HIGH = 1 / 4.1 * np.array([2, 1, 1.5, 1.25, 3, 1.5, 3])
 
-    HOME = np.array([0.0, -np.pi / 4.0, 0.0, -3.0 * np.pi / 4.0, 0.0, np.pi / 2.0, 0], dtype=np.float32)
+    #HOME = np.array([0.0, -np.pi / 4.0, 0.0, -3.0 * np.pi / 4.0, 0.0, np.pi / 2.0, 0], dtype=np.float32)
+    HOME = np.array([0.000457, -0.784098, -0.000338, -2.356950, 0.0004996, 1.5712279, 0.7846274], dtype=np.float32)
 
     def __init__(
         self,
@@ -66,6 +67,7 @@ class PolyMetisController(Controller):
 
         self._robot = None
         self._gripper = None
+        self.grasped = False
 
         self._last_joint_pos_desired = None
         self._last_gripper_pos_desired = None
@@ -142,9 +144,16 @@ class PolyMetisController(Controller):
 
     def update_gripper(self, gripper_action, blocking=False):
         # We always run the gripper in absolute position
-        self.gripper.goto(
-            width=self._max_gripper_width * (1 - gripper_action), speed=0.1, force=0.1, blocking=blocking
-        )
+        if gripper_action > 0.5 and not self.grasped:
+            self.gripper.stop()
+            self.gripper.grasp(speed=0.1, force=0.1)
+            self.grasped = True
+        elif gripper_action <= 0.5 and self.grasped:
+            self.gripper.stop()
+            self.gripper.goto(
+                width=self._max_gripper_width, speed=0.1, force=0.1, blocking=blocking
+            )
+            self.grasped = False
         return gripper_action
 
     def update(self, action: np.ndarray, controller_type: str):
