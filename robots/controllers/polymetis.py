@@ -8,6 +8,8 @@ import numpy as np
 from scipy.spatial.transform import Rotation as ScipyRotation
 
 from .controller import Controller
+from .cartesian_impedance_control import CustomCartesianImpedanceControl
+import grpc
 
 try:
     import polymetis
@@ -256,13 +258,13 @@ class PolyMetisController(Controller):
                 messages.append(new_message)
             return desired_actions, " ".join(messages) if len(messages) > 0 else None
 
-        # IK failure
-        if not ik_success:
-            messages.append("ik_failed")
-            desired_actions, new_message = self.update(self._last_joint_pos_desired, controller_type="JOINT_IMPEDANCE")
-            if new_message is not None:
-                messages.append(new_message)
-            return desired_actions, " ".join(messages) if len(messages) > 0 else None
+        # # IK failure
+        # if not ik_success:
+        #     messages.append("ik_failed")
+        #     desired_actions, new_message = self.update(self._last_joint_pos_desired, controller_type="JOINT_IMPEDANCE")
+        #     if new_message is not None:
+        #         messages.append(new_message)
+        #     return desired_actions, " ".join(messages) if len(messages) > 0 else None
 
         # Joints clipping
         clipped_joint_pos_desired = np.clip(joint_pos_desired, self.JOINT_LOW, self.JOINT_HIGH)
@@ -308,7 +310,8 @@ class PolyMetisController(Controller):
 
         # Update the robot
         self._last_joint_pos_desired = joint_pos_desired
-        self.robot.update_desired_joint_positions(joint_pos_desired)
+        self.update_desired_ee_pose(ee_pos_desired, ee_rot_desired)
+        #self.robot.update_desired_joint_positions(joint_pos_desired)
 
         return desired_actions, " ".join(messages) if len(messages) > 0 else None
 
@@ -387,7 +390,8 @@ class PolyMetisController(Controller):
             randomized_joint_positions = np.array(joint_positions, dtype=np.float32) + noise
             self.robot.move_to_joint_positions(torch.from_numpy(randomized_joint_positions))
 
-        self.robot.start_joint_impedance()
+        #self.robot.start_joint_impedance()
+        self.start_cartesian_control()
 
     def eval(self, fn_name, *args, **kwargs):
         if hasattr(self, fn_name):
@@ -401,3 +405,27 @@ class PolyMetisController(Controller):
             if isinstance(out, torch.Tensor) or (isinstance(out, list) and len(out) > 0 and isinstance(out[0], torch.Tensor)):
                 out = np.array(out)
             return out
+    
+    def start_cartesian_control(self):
+        joint_pos = self.robot.get_joint_positions()
+        self.policy = CustomCartesianImpedanceControl(
+            joint_pos_current=joint_pos,
+            Kp=torch.Tensor([150.0, 150.0, 150.0, 15.0, 15-0, 15.0]),
+            #Kp=self.robot.Kx_default,
+            Kd=self.robot.Kxd_default,
+            robot_model=self.robot.robot_model,
+            ignore_gravity=self.robot.use_grav_comp,
+        )
+        return self.robot.send_torch_policy(self.policy, blocking=False)
+
+    def update_desired_ee_pose(self, desired_next_pos, desired_next_ori):
+        try:
+            update_idx = self.robot.update_current_policy(
+                {
+                    "ee_pos_desired": torch.Tensor(desired_next_pos),
+                    "ee_quat_desired": torch.Tensor(desired_next_ori.as_quat()),
+                }
+            )
+            return update_idx
+        except grpc.RpcError as e:
+            raise e
